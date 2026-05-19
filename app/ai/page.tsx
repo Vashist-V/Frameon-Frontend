@@ -99,19 +99,19 @@ export default function AIPage() {
                             <div
                                 className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === "assistant"
                                         ? "bg-purple-600/20 border border-purple-600/30"
-                                        : "bg-red-600/20 border border-red-600/30"
+                                        : "bg-[#8b5cf6]/15 border border-[#8b5cf6]/25"
                                     }`}
                             >
                                 {msg.role === "assistant" ? (
                                     <Bot className="w-4 h-4 text-purple-400" />
                                 ) : (
-                                    <User className="w-4 h-4 text-red-400" />
+                                    <User className="w-4 h-4 text-[#c4b5fd]" />
                                 )}
                             </div>
                             <div
                                 className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${msg.role === "assistant"
                                         ? "bg-[#13131a] border border-[#2a2a3a] text-gray-200"
-                                        : "bg-red-600/20 border border-red-600/30 text-white"
+                                        : "bg-[#8b5cf6]/15 border border-[#8b5cf6]/25 text-white"
                                     }`}
                             >
                                 {msg.content.split("\n").map((line, j) => (
@@ -149,7 +149,7 @@ export default function AIPage() {
                     <button
                         onClick={handleSend}
                         disabled={!input.trim() || loading}
-                        className="w-8 h-8 bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl flex items-center justify-center flex-shrink-0 transition-colors"
+                        className="w-8 h-8 bg-[#8b5cf6] hover:bg-[#7c3aed] disabled:opacity-40 disabled:cursor-not-allowed rounded-xl flex items-center justify-center flex-shrink-0 transition-colors"
                     >
                         <Send className="w-3.5 h-3.5 text-white" />
                     </button>

@@ -43,12 +43,12 @@ export default function HorizontalScroller({ children, className = "", contentCl
     };
 
     return (
-        <div className={`relative group ${className}`}>
+        <div className={`relative group/scroller ${className}`}>
             <button
                 aria-label="Scroll left"
                 onClick={() => scrollBy("left")}
                 disabled={!canScrollLeft}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/60 hover:bg-black/80 text-white p-2 shadow-lg transition-opacity duration-200 disabled:opacity-0 opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/60 hover:bg-black/80 text-white p-2 shadow-lg transition-opacity duration-200 disabled:opacity-0 opacity-100 md:opacity-0 md:group-hover/scroller:opacity-100"
             >
                 <ChevronLeft className="w-5 h-5" />
             </button>
@@ -65,7 +65,7 @@ export default function HorizontalScroller({ children, className = "", contentCl
                 aria-label="Scroll right"
                 onClick={() => scrollBy("right")}
                 disabled={!canScrollRight}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/60 hover:bg-black/80 text-white p-2 shadow-lg transition-opacity duration-200 disabled:opacity-0 opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/60 hover:bg-black/80 text-white p-2 shadow-lg transition-opacity duration-200 disabled:opacity-0 opacity-100 md:opacity-0 md:group-hover/scroller:opacity-100"
             >
                 <ChevronRight className="w-5 h-5" />
             </button>

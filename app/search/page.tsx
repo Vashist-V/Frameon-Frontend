@@ -49,7 +49,7 @@ function SearchContent() {
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             placeholder="Search movies, series, shows..."
-                            className="w-full bg-[#13131a] border border-[#2a2a3a] rounded-2xl pl-12 pr-4 py-4 text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition-colors text-lg"
+                            className="w-full bg-[#13131a] border border-[#2a2a3a] rounded-2xl pl-12 pr-4 py-4 text-white placeholder-gray-500 focus:outline-none focus:border-[#8b5cf6] transition-colors text-lg"
                         />
                     </div>
                 </form>
@@ -67,7 +67,7 @@ function SearchContent() {
                                     key={f.val}
                                     onClick={() => setFilter(f.val as any)}
                                     className={`flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl transition-colors ${filter === f.val
-                                            ? "bg-red-600 text-white"
+                                            ? "bg-[#8b5cf6] text-white"
                                             : "bg-[#13131a] border border-[#2a2a3a] text-gray-400 hover:text-white"
                                         }`}
                                 >
@@ -87,7 +87,7 @@ function SearchContent() {
                         {/* Results */}
                         {loading ? (
                             <div className="flex justify-center py-20">
-                                <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+                                <Loader2 className="w-8 h-8 animate-spin text-[#8b5cf6]" />
                             </div>
                         ) : filtered.length === 0 ? (
                             <div className="text-center py-20">
@@ -118,7 +118,7 @@ function SearchContent() {
 
 export default function SearchPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-red-500" /></div>}>
+        <Suspense fallback={<div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#8b5cf6]" /></div>}>
             <SearchContent />
         </Suspense>
     );

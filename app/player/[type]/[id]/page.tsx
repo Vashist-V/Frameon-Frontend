@@ -1,11 +1,11 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import { getMovieDetails, getTVDetails, logWatch, TMDB_IMAGE, getWatchlist, addToWatchlist, removeFromWatchlist } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 import Image from "next/image";
 import Link from "next/link";
-import { Star, Clock, Calendar, Play, BookmarkPlus, ArrowLeft, Tv } from "lucide-react";
+import { Star, Clock, Calendar, Play, BookmarkPlus, ArrowLeft, Tv, Maximize, Minimize } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 
 interface Params {
@@ -14,31 +14,31 @@ interface Params {
 }
 
 const EMBED_SOURCES = [
-    { label: "Source 1", id: "vidsrc.xyz" },
-    { label: "Source 2", id: "vidsrc.me" },
-    { label: "Source 3", id: "autoembed" },
-    { label: "Source 4", id: "2embed.cc" },
-    { label: "Source 5", id: "embed.su" },
+    { label: "Source 1", id: "vidsrc.me" },
+    { label: "Source 2", id: "2embed.cc" },
+    { label: "Source 3", id: "multiembed" },
+    { label: "Source 4", id: "smashystream" },
+    { label: "Source 5", id: "nontongo" },
 ];
 
 function buildEmbedUrl(source: string, type: string, imdbId: string | null, tmdbId: string, season: number, episode: number) {
     if (type === "movie") {
         switch (source) {
-            case "vidsrc.me": return `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`;
-            case "embed.su": return `https://embed.su/embed/movie/${tmdbId}`;
-            case "vidsrc.xyz": return imdbId ? `https://vidsrc.xyz/embed/movie?imdb=${imdbId}` : `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}`;
-            case "2embed.cc": return `https://www.2embed.cc/embed/${tmdbId}`;
-            case "autoembed": return `https://player.autoembed.cc/embed/movie/${tmdbId}`;
-            default: return `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`;
+            case "vidsrc.me":     return `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`;
+            case "2embed.cc":     return `https://www.2embed.cc/embed/${tmdbId}`;
+            case "multiembed":    return `https://multiembed.mov/directstream.php?video_id=${tmdbId}&tmdb=1`;
+            case "smashystream":  return `https://player.smashystream.com/movie/${tmdbId}`;
+            case "nontongo":      return `https://www.nontongo.win/embed/movie/${tmdbId}`;
+            default:              return `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`;
         }
     } else {
         switch (source) {
-            case "vidsrc.me": return `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}`;
-            case "embed.su": return `https://embed.su/embed/tv/${tmdbId}/${season}/${episode}`;
-            case "vidsrc.xyz": return `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}`;
-            case "2embed.cc": return `https://www.2embed.cc/embedtv/${tmdbId}&s=${season}&e=${episode}`;
-            case "autoembed": return `https://player.autoembed.cc/embed/tv/${tmdbId}/${season}/${episode}`;
-            default: return `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}`;
+            case "vidsrc.me":     return `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}`;
+            case "2embed.cc":     return `https://www.2embed.cc/embedtv/${tmdbId}&s=${season}&e=${episode}`;
+            case "multiembed":    return `https://multiembed.mov/directstream.php?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}`;
+            case "smashystream":  return `https://player.smashystream.com/tv/${tmdbId}/${season}/${episode}`;
+            case "nontongo":      return `https://www.nontongo.win/embed/tv/${tmdbId}/${season}/${episode}`;
+            default:              return `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}`;
         }
     }
 }
@@ -50,12 +50,15 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
     const [playing, setPlaying] = useState(false);
     const [season, setSeason] = useState(1);
     const [episode, setEpisode] = useState(1);
-    const [activeSource, setActiveSource] = useState("vidsrc.xyz");
+    const [activeSource, setActiveSource] = useState("vidsrc.me");
     const [iframeFailed, setIframeFailed] = useState(false);
-    const supabase = createClient();
     const [watchlistLoading, setWatchlistLoading] = useState(false);
     const [inWatchlist, setInWatchlist] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const playerRef = useRef<HTMLDivElement>(null);
+    const supabase = createClient();
 
+    // Fetch movie/tv details
     useEffect(() => {
         const fetchDetails = async () => {
             try {
@@ -70,7 +73,7 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
         fetchDetails();
     }, [id, type]);
 
-    // Load watchlist membership once we have details (and user session attached via api client)
+    // Check watchlist membership
     useEffect(() => {
         if (!details) return;
         let mounted = true;
@@ -81,8 +84,8 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                 if (!mounted) return;
                 const tmdbId = parseInt(id);
                 setInWatchlist(list?.some((it: any) => parseInt(it.tmdb_id) === tmdbId));
-            } catch (e) {
-                // ignore errors (not signed in or network)
+            } catch {
+                // ignore — not signed in or network error
             } finally {
                 if (mounted) setWatchlistLoading(false);
             }
@@ -91,12 +94,34 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
         return () => { mounted = false; };
     }, [details, id]);
 
+    // Track fullscreen state
+    useEffect(() => {
+        const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+        document.addEventListener("fullscreenchange", onChange);
+        document.addEventListener("webkitfullscreenchange", onChange);
+        return () => {
+            document.removeEventListener("fullscreenchange", onChange);
+            document.removeEventListener("webkitfullscreenchange", onChange);
+        };
+    }, []);
 
+    // JS fullscreen — fullscreens the container div, bypasses iframe restrictions
+    const handleFullscreen = useCallback(() => {
+        const el = playerRef.current;
+        if (!el) return;
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+        } else {
+            (el.requestFullscreen?.()
+                ?? (el as any).webkitRequestFullscreen?.()
+                ?? (el as any).mozRequestFullScreen?.());
+        }
+    }, []);
 
     const handlePlay = () => {
         setPlaying(true);
         setIframeFailed(false);
-        // Fire-and-forget: never let this affect playback or auth
+        // Fire-and-forget watch log — never blocks playback
         supabase.auth.getSession().then(({ data: session }) => {
             if (!session.session) return;
             logWatch({
@@ -107,8 +132,8 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                 poster_path: details?.poster_path,
                 season: type === "tv" ? season : undefined,
                 episode: type === "tv" ? episode : undefined,
-            }).catch(() => { /* silently ignore */ });
-        }).catch(() => { /* silently ignore */ });
+            }).catch(() => { });
+        }).catch(() => { });
     };
 
     const getEmbedUrl = () => {
@@ -135,11 +160,16 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                 await removeFromWatchlist(tmdbId);
                 setInWatchlist(false);
             } else {
-                await addToWatchlist({ tmdb_id: tmdbId, title: details.title || details.name, type, poster_path: details.poster_path });
+                await addToWatchlist({
+                    tmdb_id: tmdbId,
+                    title: details.title || details.name,
+                    type,
+                    poster_path: details.poster_path,
+                });
                 setInWatchlist(true);
             }
-        } catch (e) {
-            // ignore errors; could show toast later
+        } catch {
+            // ignore
         } finally {
             setWatchlistLoading(false);
         }
@@ -151,39 +181,10 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                 <Navbar />
                 <div className="flex items-center justify-center h-[60vh]">
                     <div className="text-center">
-                        <div className="w-10 h-10 border-2 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                        <div className="w-10 h-10 border-2 border-[#8b5cf6] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                         <p className="text-gray-400">Loading...</p>
                     </div>
                 </div>
-
-                {/* Inline playback failed fallback */}
-                {iframeFailed && (
-                    <div className="mb-6 px-4 py-5 bg-[#111116] border border-[#2a2a3a] rounded-xl text-center">
-                        <p className="text-sm text-gray-300 mb-3">This source blocked embedding or failed to load.</p>
-                        <div className="flex items-center justify-center gap-3">
-                            <button
-                                onClick={() => {
-                                    // Open embed directly in new tab as a reliable fallback
-                                    const url = getEmbedUrl();
-                                    window.open(url, "_blank", "noopener,noreferrer");
-                                }}
-                                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl"
-                            >
-                                Open in new tab
-                            </button>
-                            <button
-                                onClick={() => {
-                                    // Try next source inline
-                                    setIframeFailed(false);
-                                    rotateToNextSource();
-                                }}
-                                className="bg-transparent border border-[#2a2a3a] text-gray-300 px-3 py-2 rounded-xl"
-                            >
-                                Try next source
-                            </button>
-                        </div>
-                    </div>
-                )}
             </div>
         );
     }
@@ -209,6 +210,7 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
             <Navbar />
 
             <div className="max-w-7xl mx-auto px-4 py-6">
+
                 {/* Back button */}
                 <button
                     onClick={() => history.back()}
@@ -218,18 +220,23 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                     Back
                 </button>
 
-                {/* Source switcher */}
+                {/* Source switcher — shown while playing */}
                 {playing && (
                     <div className="flex items-center gap-2 mb-3 flex-wrap">
                         <span className="text-xs text-gray-500 mr-1">Not playing?</span>
                         {EMBED_SOURCES.map((src) => (
                             <button
                                 key={src.id}
-                                onClick={() => { setActiveSource(src.id); setPlaying(false); setTimeout(() => setPlaying(true), 100); }}
-                                className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${activeSource === src.id
-                                    ? "bg-red-600 border-red-600 text-white"
-                                    : "border-[#2a2a3a] text-gray-400 hover:border-gray-500 hover:text-white"
-                                    }`}
+                                onClick={() => {
+                                    setActiveSource(src.id);
+                                    setPlaying(false);
+                                    setTimeout(() => setPlaying(true), 100);
+                                }}
+                                className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                                    activeSource === src.id
+                                        ? "bg-[#8b5cf6] border-[#8b5cf6] text-white"
+                                        : "border-[#2a2a3a] text-gray-400 hover:border-gray-500 hover:text-white"
+                                }`}
                             >
                                 {src.label}
                             </button>
@@ -238,27 +245,34 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                 )}
 
                 {/* Video player */}
-                <div className="bg-black rounded-2xl overflow-hidden mb-8 relative">
+                <div ref={playerRef} className="bg-black rounded-2xl overflow-hidden mb-8 relative">
                     {playing ? (
                         <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
                             <iframe
                                 key={`${activeSource}-${season}-${episode}`}
                                 src={getEmbedUrl()}
                                 className="absolute inset-0 w-full h-full"
-                                allowFullScreen
+                                allowFullScreen={true}
                                 allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-                                referrerPolicy="no-referrer"
-                                onLoad={() => {
-                                    // iframe loaded; we keep playback inline if possible
-                                    setIframeFailed(false);
-                                }}
+                                referrerPolicy="origin"
+                                onLoad={() => setIframeFailed(false)}
                                 onError={() => {
-                                    // fallback to open in new tab if iframe fails
                                     setIframeFailed(true);
                                     rotateToNextSource();
                                 }}
                                 frameBorder="0"
                             />
+                            {/* Custom JS fullscreen button — works on all sources */}
+                            <button
+                                onClick={handleFullscreen}
+                                className="absolute bottom-3 right-3 z-10 bg-black/60 hover:bg-black/90 text-white p-2 rounded-lg backdrop-blur-sm transition-all opacity-40 hover:opacity-100"
+                                title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                            >
+                                {isFullscreen
+                                    ? <Minimize className="w-4 h-4" />
+                                    : <Maximize className="w-4 h-4" />
+                                }
+                            </button>
                         </div>
                     ) : (
                         <div
@@ -277,7 +291,7 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                                 <div className="absolute inset-0 bg-[#1c1c28]" />
                             )}
                             <div className="absolute inset-0 bg-black/50 flex items-center justify-center group-hover:bg-black/40 transition-colors">
-                                <div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-2xl shadow-red-600/40">
+                                <div className="w-20 h-20 bg-[#8b5cf6] rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-2xl shadow-[#8b5cf6]/35">
                                     <Play className="w-9 h-9 text-white ml-1" fill="white" />
                                 </div>
                             </div>
@@ -288,31 +302,19 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                     )}
                 </div>
 
-                {/* Inline playback failed fallback (visible during normal playback too) */}
+                {/* Source failed banner */}
                 {iframeFailed && (
                     <div className="mb-6 px-4 py-5 bg-[#111116] border border-[#2a2a3a] rounded-xl text-center">
-                        <p className="text-sm text-gray-300 mb-3">This source blocked embedding or failed to load.</p>
-                        <div className="flex items-center justify-center gap-3">
-                            <button
-                                onClick={() => {
-                                    const url = getEmbedUrl();
-                                    window.open(url, "_blank", "noopener,noreferrer");
-                                }}
-                                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl"
-                            >
-                                Open in new tab
-                            </button>
-                            <button
-                                onClick={() => {
-                                    // Try next source inline
-                                    setIframeFailed(false);
-                                    rotateToNextSource();
-                                }}
-                                className="bg-transparent border border-[#2a2a3a] text-gray-300 px-3 py-2 rounded-xl"
-                            >
-                                Try next source
-                            </button>
-                        </div>
+                        <p className="text-sm text-gray-300 mb-3">This source failed to load. Try another one above.</p>
+                        <button
+                            onClick={() => {
+                                setIframeFailed(false);
+                                rotateToNextSource();
+                            }}
+                            className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white px-4 py-2 rounded-xl text-sm"
+                        >
+                            Try next source
+                        </button>
                     </div>
                 )}
 
@@ -325,7 +327,7 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                             <select
                                 value={season}
                                 onChange={(e) => { setSeason(parseInt(e.target.value)); setPlaying(false); }}
-                                className="bg-[#1c1c28] border border-[#2a2a3a] text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-red-500"
+                                className="bg-[#1c1c28] border border-[#2a2a3a] text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#8b5cf6]"
                             >
                                 {Array.from({ length: seasons }, (_, i) => i + 1).map((s) => (
                                     <option key={s} value={s}>Season {s}</option>
@@ -337,7 +339,7 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                             <select
                                 value={episode}
                                 onChange={(e) => { setEpisode(parseInt(e.target.value)); setPlaying(false); }}
-                                className="bg-[#1c1c28] border border-[#2a2a3a] text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-red-500"
+                                className="bg-[#1c1c28] border border-[#2a2a3a] text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#8b5cf6]"
                             >
                                 {Array.from({ length: 30 }, (_, i) => i + 1).map((ep) => (
                                     <option key={ep} value={ep}>Episode {ep}</option>
@@ -347,7 +349,7 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                         {playing && (
                             <button
                                 onClick={() => setPlaying(false)}
-                                className="text-sm text-red-400 hover:text-red-300 transition-colors ml-auto"
+                                className="text-sm text-[#c4b5fd] hover:text-[#e0d4ff] transition-colors ml-auto"
                             >
                                 Change episode
                             </button>
@@ -355,7 +357,7 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                     </div>
                 )}
 
-                {/* Movie info */}
+                {/* Content info */}
                 <div className="grid grid-cols-1 md:grid-cols-[auto,1fr] gap-8">
                     {/* Poster */}
                     <div className="w-48 flex-shrink-0 hidden md:block">
@@ -439,7 +441,7 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                         <div className="flex gap-3">
                             <button
                                 onClick={handlePlay}
-                                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-2.5 rounded-xl transition-colors"
+                                className="flex items-center gap-2 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-semibold px-6 py-2.5 rounded-xl transition-colors"
                             >
                                 <Play className="w-4 h-4" fill="white" />
                                 {playing ? "Reload" : "Play"}
@@ -447,7 +449,11 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                             <button
                                 onClick={toggleWatchlist}
                                 disabled={watchlistLoading}
-                                className={`flex items-center gap-2 text-sm px-4 py-2 rounded-xl transition-colors ${inWatchlist ? "bg-white/6 text-white" : "bg-transparent text-gray-300 border border-[#2a2a3a] hover:border-gray-500 hover:text-white"}`}
+                                className={`flex items-center gap-2 text-sm px-4 py-2 rounded-xl transition-colors ${
+                                    inWatchlist
+                                        ? "bg-white/10 text-white"
+                                        : "bg-transparent text-gray-300 border border-[#2a2a3a] hover:border-gray-500 hover:text-white"
+                                }`}
                                 title={inWatchlist ? "Remove from watchlist" : "Add to watchlist"}
                             >
                                 <BookmarkPlus className="w-4 h-4" />
@@ -457,7 +463,7 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                     </div>
                 </div>
 
-                {/* Similar */}
+                {/* Similar content */}
                 {details.similar?.results?.length > 0 && (
                     <div className="mt-10">
                         <h2 className="text-lg font-semibold mb-4">More Like This</h2>
@@ -465,7 +471,7 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                             {details.similar.results.slice(0, 12).map((movie: any) => (
                                 <div key={movie.id} className="flex-shrink-0 w-[140px]">
                                     <Link href={`/player/${type}/${movie.id}`}>
-                                        <div className="rounded-xl overflow-hidden bg-[#1c1c28] border border-[#2a2a3a] hover:border-red-600/40 transition-colors group">
+                                        <div className="rounded-xl overflow-hidden bg-[#1c1c28] border border-[#2a2a3a] hover:border-[#8b5cf6]/40 transition-colors group">
                                             <div className="relative aspect-[2/3]">
                                                 {movie.poster_path ? (
                                                     <Image
@@ -486,6 +492,7 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                         </div>
                     </div>
                 )}
+
             </div>
         </div>
     );

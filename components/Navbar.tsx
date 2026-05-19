@@ -41,7 +41,7 @@ export default function Navbar() {
             <div className="max-w-7xl mx-auto px-4 h-16 flex items-center gap-4">
                 {/* Logo */}
                 <Link href="/explore" className="flex items-center gap-2 mr-4 flex-shrink-0">
-                    <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center">
+                    <div className="w-8 h-8 bg-[#8b5cf6] rounded-lg flex items-center justify-center">
                         <Film className="w-4 h-4 text-white" />
                     </div>
                     <span className="text-lg font-bold tracking-tight hidden sm:block">Frameon</span>
@@ -56,7 +56,7 @@ export default function Navbar() {
                             value={searchQ}
                             onChange={(e) => setSearchQ(e.target.value)}
                             placeholder="Search movies, series..."
-                            className="w-full bg-[#1c1c28] border border-[#2a2a3a] rounded-xl pl-9 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition-colors"
+                            className="w-full bg-[#1c1c28] border border-[#2a2a3a] rounded-xl pl-9 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#8b5cf6] transition-colors"
                         />
                     </div>
                 </form>
@@ -93,13 +93,13 @@ export default function Navbar() {
                                 href="/profile"
                                 className="flex items-center gap-2 text-sm text-gray-400 hover:text-white px-2 py-2 rounded-xl hover:bg-white/5 transition-colors"
                             >
-                                <div className="w-7 h-7 bg-red-600/30 border border-red-600/40 rounded-full flex items-center justify-center text-xs font-medium text-red-300">
+                                <div className="w-7 h-7 bg-[#8b5cf6]/20 border border-[#8b5cf6]/30 rounded-full flex items-center justify-center text-xs font-medium text-[#d7c3ff]">
                                     {user.display_name?.[0]?.toUpperCase() || <User className="w-3 h-3" />}
                                 </div>
                             </Link>
                             <button
                                 onClick={handleLogout}
-                                className="text-gray-400 hover:text-red-400 p-2 rounded-xl hover:bg-white/5 transition-colors"
+                                className="text-gray-400 hover:text-[#c4b5fd] p-2 rounded-xl hover:bg-white/5 transition-colors"
                                 title="Sign out"
                             >
                                 <LogOut className="w-4 h-4" />
@@ -108,7 +108,7 @@ export default function Navbar() {
                     ) : (
                         <Link
                             href="/login"
-                            className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+                            className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
                         >
                             Sign In
                         </Link>

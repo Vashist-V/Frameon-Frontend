@@ -39,12 +39,12 @@ export default function LoginPage() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-[#0a0a0f] relative overflow-hidden">
             {/* Background gradient */}
-            <div className="absolute inset-0 bg-gradient-to-br from-red-950/20 via-transparent to-purple-950/20 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-transparent to-indigo-900/25 pointer-events-none" />
 
             <div className="w-full max-w-md mx-auto px-6 relative z-10">
                 {/* Logo */}
                 <div className="flex items-center justify-center gap-3 mb-10">
-                    <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center">
+                    <div className="w-10 h-10 bg-[#8b5cf6] rounded-xl flex items-center justify-center">
                         <Film className="w-6 h-6 text-white" />
                     </div>
                     <span className="text-2xl font-bold tracking-tight">Frameon</span>
@@ -62,7 +62,7 @@ export default function LoginPage() {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
-                                className="w-full bg-[#1c1c28] border border-[#2a2a3a] rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition-colors"
+                                className="w-full bg-[#1c1c28] border border-[#2a2a3a] rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#8b5cf6] transition-colors"
                                 placeholder="you@example.com"
                             />
                         </div>
@@ -75,7 +75,7 @@ export default function LoginPage() {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
-                                    className="w-full bg-[#1c1c28] border border-[#2a2a3a] rounded-xl px-4 py-3 pr-11 text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition-colors"
+                                    className="w-full bg-[#1c1c28] border border-[#2a2a3a] rounded-xl px-4 py-3 pr-11 text-white placeholder-gray-500 focus:outline-none focus:border-[#8b5cf6] transition-colors"
                                     placeholder="••••••••"
                                 />
                                 <button
@@ -89,7 +89,7 @@ export default function LoginPage() {
                         </div>
 
                         {error && (
-                            <div className="text-red-400 text-sm bg-red-950/30 border border-red-900/40 rounded-lg px-3 py-2">
+                            <div className="text-[#d7c3ff] text-sm bg-[#2a1f3d] border border-[#8b5cf6]/30 rounded-lg px-3 py-2">
                                 {error}
                             </div>
                         )}
@@ -97,7 +97,7 @@ export default function LoginPage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+                            className="w-full bg-[#8b5cf6] hover:bg-[#7c3aed] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
                         >
                             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
                             Sign In
@@ -128,7 +128,7 @@ export default function LoginPage() {
 
                     <p className="text-center text-gray-400 text-sm mt-6">
                         Don&apos;t have an account?{" "}
-                        <Link href="/signup" className="text-red-400 hover:text-red-300 font-medium transition-colors">
+                        <Link href="/signup" className="text-[#c4b5fd] hover:text-[#e0d4ff] font-medium transition-colors">
                             Sign up free
                         </Link>
                     </p>

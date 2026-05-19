@@ -128,7 +128,7 @@ export default function ExplorePage() {
                     title="Popular Movies"
                     movies={popularMovies || []}
                     mediaType="movie"
-                    icon={<TrendingUp className="w-5 h-5 text-red-400" />}
+                    icon={<TrendingUp className="w-5 h-5 text-[#c4b5fd]" />}
                     viewAllHref="/search?q=popular&type=movie"
                 />
 

@@ -66,7 +66,7 @@ export default function HeroBanner({ item }: Props) {
                         <div className="flex items-center gap-3">
                             <Link
                                 href={`/player/${type}/${item.id}`}
-                                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+                                className="flex items-center gap-2 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white font-semibold px-6 py-3 rounded-xl transition-colors"
                             >
                                 <Play className="w-5 h-5" fill="white" />
                                 Play Now

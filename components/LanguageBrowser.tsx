@@ -47,7 +47,7 @@ export default function LanguageBrowser({ childMode = false }: Props) {
                         key={lang.code}
                         onClick={() => setSelected(lang.code)}
                         className={`flex-shrink-0 text-sm px-3 py-1.5 rounded-full border transition-colors ${selected === lang.code
-                            ? "bg-red-600 border-red-600 text-white"
+                            ? "bg-[#8b5cf6] border-[#8b5cf6] text-white"
                             : "bg-transparent border-[#2a2a3a] text-gray-400 hover:border-gray-500 hover:text-white"
                             }`}
                     >
@@ -74,7 +74,7 @@ export default function LanguageBrowser({ childMode = false }: Props) {
 
             {isLoading ? (
                 <div className="flex justify-center py-10">
-                    <Loader2 className="w-6 h-6 animate-spin text-red-500" />
+                    <Loader2 className="w-6 h-6 animate-spin text-[#8b5cf6]" />
                 </div>
             ) : (
                 <HorizontalScroller contentClassName="pb-2" ariaLabel="Titles in selected language">

@@ -43,7 +43,7 @@ export default function ProfilePage() {
             <div className="max-w-4xl mx-auto px-4 py-8">
                 {/* Profile header */}
                 <div className="bg-[#13131a] border border-[#2a2a3a] rounded-2xl p-6 mb-6 flex items-center gap-5">
-                    <div className="w-16 h-16 bg-red-600/20 border border-red-600/30 rounded-full flex items-center justify-center text-2xl font-bold text-red-300">
+                    <div className="w-16 h-16 bg-[#8b5cf6]/20 border border-[#8b5cf6]/30 rounded-full flex items-center justify-center text-2xl font-bold text-[#d7c3ff]">
                         {user?.display_name?.[0]?.toUpperCase() || "?"}
                     </div>
                     <div className="flex-1">
@@ -63,7 +63,7 @@ export default function ProfilePage() {
                         </button>
                         <button
                             onClick={handleLogout}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#2a2a3a] text-gray-400 hover:text-red-400 hover:border-red-900/40 text-sm transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#2a2a3a] text-gray-400 hover:text-[#c4b5fd] hover:border-[#8b5cf6]/30 text-sm transition-colors"
                         >
                             <LogOut className="w-4 h-4" />
                             Sign Out
@@ -75,7 +75,7 @@ export default function ProfilePage() {
                 <div className="flex gap-2 mb-5">
                     <button
                         onClick={() => setTab("history")}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-colors ${tab === "history" ? "bg-red-600 text-white" : "bg-[#13131a] border border-[#2a2a3a] text-gray-400 hover:text-white"
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-colors ${tab === "history" ? "bg-[#8b5cf6] text-white" : "bg-[#13131a] border border-[#2a2a3a] text-gray-400 hover:text-white"
                             }`}
                     >
                         <Clock className="w-4 h-4" />
@@ -83,7 +83,7 @@ export default function ProfilePage() {
                     </button>
                     <button
                         onClick={() => setTab("watchlist")}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-colors ${tab === "watchlist" ? "bg-red-600 text-white" : "bg-[#13131a] border border-[#2a2a3a] text-gray-400 hover:text-white"
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-colors ${tab === "watchlist" ? "bg-[#8b5cf6] text-white" : "bg-[#13131a] border border-[#2a2a3a] text-gray-400 hover:text-white"
                             }`}
                     >
                         <Bookmark className="w-4 h-4" />
@@ -102,7 +102,7 @@ export default function ProfilePage() {
                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
                             {history.map((item) => (
                                 <Link key={item.id} href={`/player/${item.type}/${item.tmdb_id}`}>
-                                    <div className="rounded-xl overflow-hidden bg-[#13131a] border border-[#2a2a3a] hover:border-red-600/40 transition-colors">
+                                    <div className="rounded-xl overflow-hidden bg-[#13131a] border border-[#2a2a3a] hover:border-[#8b5cf6]/40 transition-colors">
                                         <div className="relative aspect-[2/3]">
                                             {item.poster_path ? (
                                                 <Image src={TMDB_IMAGE(item.poster_path, "w342")} alt={item.title} fill className="object-cover" sizes="150px" />
@@ -128,7 +128,7 @@ export default function ProfilePage() {
                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
                             {watchlist.map((item) => (
                                 <Link key={item.id} href={`/player/${item.type}/${item.tmdb_id}`}>
-                                    <div className="rounded-xl overflow-hidden bg-[#13131a] border border-[#2a2a3a] hover:border-red-600/40 transition-colors">
+                                    <div className="rounded-xl overflow-hidden bg-[#13131a] border border-[#2a2a3a] hover:border-[#8b5cf6]/40 transition-colors">
                                         <div className="relative aspect-[2/3]">
                                             {item.poster_path ? (
                                                 <Image src={TMDB_IMAGE(item.poster_path, "w342")} alt={item.title} fill className="object-cover" sizes="150px" />
