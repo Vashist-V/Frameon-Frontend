@@ -508,6 +508,14 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                                 frameBorder="0"
                             />
 
+                            {activeSource === DEFAULT_SOURCE_ID && (
+                                <div
+                                    className="source-two-iframe-mask"
+                                    aria-hidden="true"
+                                    title="Hidden third-party player actions"
+                                />
+                            )}
+
                             {embedLoadState !== "loaded" && (
                                 <div className="absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg border border-white/10 bg-black/75 px-3 py-2 text-xs text-white backdrop-blur-sm">
                                     {embedLoadState === "loading" && (

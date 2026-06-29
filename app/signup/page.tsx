@@ -6,6 +6,17 @@ import { useRouter } from "next/navigation";
 import { Film, Eye, EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
 
+function authErrorMessage(message: string) {
+    const normalized = message.toLowerCase();
+    if (normalized.includes("email rate limit")) {
+        return "Signup email delivery is temporarily rate-limited. Please try again later.";
+    }
+    if (normalized.includes("email address not authorized")) {
+        return "Signup emails are currently limited by the auth email provider. Please contact the site owner.";
+    }
+    return message;
+}
+
 export default function SignupPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -15,21 +26,28 @@ export default function SignupPage() {
     const [error, setError] = useState("");
     const [success, setSuccess] = useState(false);
     const supabase = createClient();
+    const router = useRouter();
 
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError("");
 
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
             email,
             password,
-            options: { data: { full_name: displayName } },
+            options: {
+                data: { full_name: displayName },
+                emailRedirectTo: `${window.location.origin}/auth/callback?next=/explore`,
+            },
         });
 
         if (error) {
-            setError(error.message);
+            setError(authErrorMessage(error.message));
             setLoading(false);
+        } else if (data.session) {
+            router.replace("/explore");
+            router.refresh();
         } else {
             setSuccess(true);
             setLoading(false);
