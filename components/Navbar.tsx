@@ -1,18 +1,23 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Film, Search, Bot, LogOut, Baby, User } from "lucide-react";
+import { Film, Search, Bot, LogOut, Baby, User, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAppStore } from "@/lib/store";
-import { updateChildMode } from "@/lib/api";
-import { useState } from "react";
+import { searchMovies, TMDB_IMAGE, updateChildMode, type MediaItem } from "@/lib/api";
+import { mediaTitle, mediaYear, sortMediaMatches } from "@/lib/search";
+import { useEffect, useState } from "react";
 
 export default function Navbar() {
     const router = useRouter();
     const pathname = usePathname();
     const { childMode, setChildMode, user, clearUser } = useAppStore();
     const [searchQ, setSearchQ] = useState("");
+    const [suggestions, setSuggestions] = useState<MediaItem[]>([]);
+    const [searching, setSearching] = useState(false);
+    const [suggestionsOpen, setSuggestionsOpen] = useState(false);
     const supabase = createClient();
 
     const handleLogout = async () => {
@@ -23,10 +28,48 @@ export default function Navbar() {
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
-        if (searchQ.trim()) {
-            router.push(`/search?q=${encodeURIComponent(searchQ.trim())}`);
+        const trimmed = searchQ.trim();
+        if (trimmed.length >= 2) {
+            setSuggestionsOpen(false);
+            router.push(`/search?q=${encodeURIComponent(trimmed)}`);
         }
     };
+
+    useEffect(() => {
+        const trimmed = searchQ.trim();
+        let active = true;
+
+        const timeout = window.setTimeout(() => {
+            if (trimmed.length < 2) {
+                if (!active) return;
+                setSuggestions([]);
+                setSearching(false);
+                return;
+            }
+
+            setSearching(true);
+            searchMovies(trimmed, 1, childMode)
+                .then((data) => {
+                    if (!active) return;
+                    setSuggestions(sortMediaMatches(data.results || [], trimmed).slice(0, 6));
+                })
+                .catch(() => {
+                    if (active) setSuggestions([]);
+                })
+                .finally(() => {
+                    if (active) setSearching(false);
+                });
+
+            if (pathname === "/search") {
+                router.replace(`/search?q=${encodeURIComponent(trimmed)}`, { scroll: false });
+            }
+        }, 300);
+
+        return () => {
+            active = false;
+            window.clearTimeout(timeout);
+        };
+    }, [childMode, pathname, router, searchQ]);
 
     const toggleChildMode = async () => {
         const newVal = !childMode;
@@ -54,10 +97,65 @@ export default function Navbar() {
                         <input
                             type="text"
                             value={searchQ}
-                            onChange={(e) => setSearchQ(e.target.value)}
+                            onChange={(e) => {
+                                setSearchQ(e.target.value);
+                                setSuggestionsOpen(true);
+                            }}
+                            onFocus={() => setSuggestionsOpen(true)}
+                            onBlur={() => window.setTimeout(() => setSuggestionsOpen(false), 120)}
                             placeholder="Search movies, series..."
                             className="w-full bg-[#1c1c28] border border-[#2a2a3a] rounded-xl pl-9 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#8b5cf6] transition-colors"
                         />
+                        {searching && (
+                            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-gray-500" />
+                        )}
+
+                        {suggestionsOpen && searchQ.trim().length >= 2 && (
+                            <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-xl border border-[#2a2a3a] bg-[#13131a] shadow-2xl shadow-black/40">
+                                {suggestions.length > 0 ? (
+                                    suggestions.map((item) => {
+                                        const title = mediaTitle(item);
+                                        const type = item.media_type || "movie";
+                                        const year = mediaYear(item);
+
+                                        return (
+                                            <Link
+                                                key={`${type}-${item.id}`}
+                                                href={`/player/${type}/${item.id}`}
+                                                onMouseDown={() => setSuggestionsOpen(false)}
+                                                className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 transition-colors"
+                                            >
+                                                <div className="relative h-12 w-8 flex-shrink-0 overflow-hidden rounded bg-[#1c1c28]">
+                                                    {item.poster_path ? (
+                                                        <Image
+                                                            src={TMDB_IMAGE(item.poster_path, "w185")}
+                                                            alt={title}
+                                                            fill
+                                                            sizes="32px"
+                                                            className="object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="flex h-full w-full items-center justify-center">
+                                                            <Film className="h-4 w-4 text-gray-500" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-sm font-medium text-white">{title}</p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {type === "tv" ? "Series" : "Movie"}{year ? ` • ${year}` : ""}
+                                                    </p>
+                                                </div>
+                                            </Link>
+                                        );
+                                    })
+                                ) : (
+                                    <div className="px-3 py-3 text-sm text-gray-500">
+                                        {searching ? "Searching..." : "No matching titles"}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </form>
 

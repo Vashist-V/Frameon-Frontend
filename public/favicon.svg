@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Frameon">
+  <rect width="64" height="64" rx="14" fill="#0a0a0f"/>
+  <rect x="12" y="14" width="40" height="36" rx="6" fill="#8b5cf6"/>
+  <path d="M24 24v16l14-8-14-8z" fill="#fff"/>
+  <path d="M18 21h4v4h-4v-4zm24 0h4v4h-4v-4zM18 39h4v4h-4v-4zm24 0h4v4h-4v-4z" fill="#d7c3ff"/>
+</svg>

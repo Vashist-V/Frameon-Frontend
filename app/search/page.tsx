@@ -2,11 +2,20 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
-import { searchMovies } from "@/lib/api";
+import { searchMovies, type MediaItem } from "@/lib/api";
 import { useAppStore } from "@/lib/store";
+import { sortMediaMatches } from "@/lib/search";
 import Navbar from "@/components/Navbar";
 import MovieCard from "@/components/MovieCard";
 import { Search, Loader2, Film, Tv } from "lucide-react";
+
+type ResultFilter = "all" | "movie" | "tv";
+
+const filters: { val: ResultFilter; label: string; icon: React.ReactNode }[] = [
+    { val: "all", label: "All Results", icon: null },
+    { val: "movie", label: "Movies", icon: <Film className="w-4 h-4" /> },
+    { val: "tv", label: "Series", icon: <Tv className="w-4 h-4" /> },
+];
 
 function SearchContent() {
     const searchParams = useSearchParams();
@@ -15,22 +24,71 @@ function SearchContent() {
     const { childMode } = useAppStore();
 
     const [query, setQuery] = useState(q);
-    const [results, setResults] = useState<any[]>([]);
+    const [results, setResults] = useState<MediaItem[]>([]);
     const [loading, setLoading] = useState(false);
-    const [filter, setFilter] = useState<"all" | "movie" | "tv">("all");
+    const [filter, setFilter] = useState<ResultFilter>("all");
+    const displayQuery = query.trim();
+    const hasSearch = displayQuery.length >= 2;
 
     useEffect(() => {
-        if (!q) return;
-        setLoading(true);
-        searchMovies(q, 1, childMode)
-            .then((d) => setResults(d.results || []))
-            .finally(() => setLoading(false));
-    }, [q, childMode]);
+        const nextQuery = q.trim();
+        const timeout = window.setTimeout(() => {
+            setQuery((current) => (current === nextQuery ? current : nextQuery));
+        }, 0);
+
+        return () => window.clearTimeout(timeout);
+    }, [q]);
+
+    useEffect(() => {
+        const trimmed = query.trim();
+        let active = true;
+
+        const timeout = window.setTimeout(() => {
+            if (trimmed.length < 2) {
+                if (!active) return;
+                setResults([]);
+                setLoading(false);
+                return;
+            }
+
+            setLoading(true);
+            searchMovies(trimmed, 1, childMode)
+                .then((data) => {
+                    if (!active) return;
+                    setResults(sortMediaMatches(data.results || [], trimmed));
+                })
+                .catch(() => {
+                    if (active) setResults([]);
+                })
+                .finally(() => {
+                    if (active) setLoading(false);
+                });
+        }, 300);
+
+        return () => {
+            active = false;
+            window.clearTimeout(timeout);
+        };
+    }, [childMode, query]);
+
+    useEffect(() => {
+        const trimmed = query.trim();
+        const timeout = window.setTimeout(() => {
+            if (trimmed.length >= 2 && q !== trimmed) {
+                router.replace(`/search?q=${encodeURIComponent(trimmed)}`, { scroll: false });
+            } else if (trimmed.length === 0 && q) {
+                router.replace("/search", { scroll: false });
+            }
+        }, 350);
+
+        return () => window.clearTimeout(timeout);
+    }, [q, query, router]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
-        if (query.trim()) {
-            router.push(`/search?q=${encodeURIComponent(query.trim())}`);
+        const trimmed = query.trim();
+        if (trimmed.length >= 2) {
+            router.push(`/search?q=${encodeURIComponent(trimmed)}`);
         }
     };
 
@@ -54,18 +112,14 @@ function SearchContent() {
                     </div>
                 </form>
 
-                {q && (
+                {hasSearch && (
                     <>
                         {/* Filter tabs */}
                         <div className="flex gap-2 mb-6">
-                            {[
-                                { val: "all", label: "All Results", icon: null },
-                                { val: "movie", label: "Movies", icon: <Film className="w-4 h-4" /> },
-                                { val: "tv", label: "Series", icon: <Tv className="w-4 h-4" /> },
-                            ].map((f) => (
+                            {filters.map((f) => (
                                 <button
                                     key={f.val}
-                                    onClick={() => setFilter(f.val as any)}
+                                    onClick={() => setFilter(f.val)}
                                     className={`flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl transition-colors ${filter === f.val
                                             ? "bg-[#8b5cf6] text-white"
                                             : "bg-[#13131a] border border-[#2a2a3a] text-gray-400 hover:text-white"
@@ -80,7 +134,7 @@ function SearchContent() {
                         {/* Results count */}
                         {!loading && (
                             <p className="text-gray-500 text-sm mb-5">
-                                {filtered.length} results for <span className="text-white font-medium">&ldquo;{q}&rdquo;</span>
+                                {filtered.length} results for <span className="text-white font-medium">&ldquo;{displayQuery}&rdquo;</span>
                             </p>
                         )}
 
@@ -91,24 +145,25 @@ function SearchContent() {
                             </div>
                         ) : filtered.length === 0 ? (
                             <div className="text-center py-20">
-                                <p className="text-5xl mb-4">🎬</p>
-                                <p className="text-gray-400 text-lg">No results found for &ldquo;{q}&rdquo;</p>
+                                <Film className="w-14 h-14 text-gray-700 mx-auto mb-4" />
+                                <p className="text-gray-400 text-lg">No results found for &ldquo;{displayQuery}&rdquo;</p>
                                 <p className="text-gray-600 text-sm mt-2">Try different keywords</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
                                 {filtered.map((movie) => (
-                                    <MovieCard key={movie.id} movie={movie} />
+                                    <MovieCard key={`${movie.media_type || "movie"}-${movie.id}`} movie={movie} />
                                 ))}
                             </div>
                         )}
                     </>
                 )}
 
-                {!q && (
+                {!hasSearch && (
                     <div className="text-center py-20">
                         <Search className="w-16 h-16 text-gray-700 mx-auto mb-4" />
                         <p className="text-gray-400 text-lg">Search for movies or series</p>
+                        <p className="text-gray-600 text-sm mt-2">Type at least 2 characters to see matches</p>
                     </div>
                 )}
             </div>
