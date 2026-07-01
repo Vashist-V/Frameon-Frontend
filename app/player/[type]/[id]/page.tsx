@@ -66,7 +66,7 @@ function buildEmbedUrl(source: string, type: string, tmdbId: string, season: num
     if (type === "movie") {
         switch (source) {
             case "2embed.cc":
-                return `https://www.2embed.cc/embed/${tmdbId}`;
+                return `/api/embed/source-two?type=movie&id=${encodeURIComponent(tmdbId)}`;
             case "vidsrc.me":
                 return `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`;
             case "multiembed":
@@ -82,7 +82,7 @@ function buildEmbedUrl(source: string, type: string, tmdbId: string, season: num
 
     switch (source) {
         case "2embed.cc":
-            return `https://www.2embed.cc/embedtv/${tmdbId}&s=${season}&e=${episode}`;
+            return `/api/embed/source-two?type=tv&id=${encodeURIComponent(tmdbId)}&season=${season}&episode=${episode}`;
         case "vidsrc.me":
             return `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}`;
         case "multiembed":
@@ -495,26 +495,23 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                 <div ref={playerRef} className="bg-black rounded-2xl overflow-hidden mb-6 relative">
                     {playing ? (
                         <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-                            <iframe
-                                key={iframeKey}
-                                title={`${title} player`}
-                                src={embedUrl}
-                                className="absolute inset-0 w-full h-full"
-                                allowFullScreen={true}
-                                allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-                                referrerPolicy="origin"
-                                onLoad={() => setEmbedLoadState("loaded")}
-                                onError={() => setEmbedLoadState("failed")}
-                                frameBorder="0"
-                            />
-
-                            {activeSource === DEFAULT_SOURCE_ID && (
-                                <div
-                                    className="source-two-iframe-mask"
-                                    aria-hidden="true"
-                                    title="Hidden third-party player actions"
+                            <div className="absolute inset-0 bg-black">
+                                <iframe
+                                    key={iframeKey}
+                                    title={`${title} player`}
+                                    src={embedUrl}
+                                    className="absolute inset-0 w-full h-full"
+                                    allowFullScreen={true}
+                                    allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+                                    sandbox={activeSource === DEFAULT_SOURCE_ID
+                                        ? "allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-presentation allow-scripts"
+                                        : undefined}
+                                    referrerPolicy="origin"
+                                    onLoad={() => setEmbedLoadState("loaded")}
+                                    onError={() => setEmbedLoadState("failed")}
+                                    frameBorder="0"
                                 />
-                            )}
+                            </div>
 
                             {embedLoadState !== "loaded" && (
                                 <div className="absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg border border-white/10 bg-black/75 px-3 py-2 text-xs text-white backdrop-blur-sm">

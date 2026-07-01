@@ -126,27 +126,6 @@ body {
   background: #000 !important;
 }
 
-.source-two-iframe-mask {
-  position: absolute;
-  top: clamp(42px, 4.8vw, 70px);
-  left: 0;
-  z-index: 8;
-  width: clamp(58px, 5.8vw, 86px);
-  height: clamp(132px, 13vw, 198px);
-  background: #000;
-  pointer-events: auto;
-}
-
-:fullscreen .source-two-iframe-mask,
-:-webkit-full-screen .source-two-iframe-mask,
-:-moz-full-screen .source-two-iframe-mask {
-  position: fixed;
-  top: clamp(52px, 5.5vw, 82px);
-  left: 0;
-  width: clamp(70px, 6.5vw, 98px);
-  height: clamp(150px, 14vw, 224px);
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
