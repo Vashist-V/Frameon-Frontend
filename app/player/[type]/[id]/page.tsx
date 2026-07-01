@@ -66,7 +66,7 @@ function buildEmbedUrl(source: string, type: string, tmdbId: string, season: num
     if (type === "movie") {
         switch (source) {
             case "2embed.cc":
-                return `/api/embed/source-two?type=movie&id=${encodeURIComponent(tmdbId)}`;
+                return `https://streamsrcs.2embed.cc/vnest?tmdb=${tmdbId}`;
             case "vidsrc.me":
                 return `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`;
             case "multiembed":
@@ -82,7 +82,7 @@ function buildEmbedUrl(source: string, type: string, tmdbId: string, season: num
 
     switch (source) {
         case "2embed.cc":
-            return `/api/embed/source-two?type=tv&id=${encodeURIComponent(tmdbId)}&season=${season}&episode=${episode}`;
+            return `https://streamsrcs.2embed.cc/xps-tv?tmdb=${tmdbId}&s=${season}&e=${episode}`;
         case "vidsrc.me":
             return `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}`;
         case "multiembed":
@@ -503,9 +503,6 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                                     className="absolute inset-0 w-full h-full"
                                     allowFullScreen={true}
                                     allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-                                    sandbox={activeSource === DEFAULT_SOURCE_ID
-                                        ? "allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-presentation allow-scripts"
-                                        : undefined}
                                     referrerPolicy="origin"
                                     onLoad={() => setEmbedLoadState("loaded")}
                                     onError={() => setEmbedLoadState("failed")}
