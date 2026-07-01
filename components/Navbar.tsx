@@ -81,9 +81,9 @@ export default function Navbar() {
 
     return (
         <header className="sticky top-0 z-50 bg-[#0a0a0f]/90 backdrop-blur-md border-b border-[#2a2a3a]">
-            <div className="max-w-7xl mx-auto px-4 h-16 flex items-center gap-4">
+            <div className="max-w-7xl mx-auto px-4 min-h-16 py-3 sm:py-0 flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4">
                 {/* Logo */}
-                <Link href="/explore" className="flex items-center gap-2 mr-4 flex-shrink-0">
+                <Link href="/explore" className="order-1 flex items-center gap-2 sm:mr-4 flex-shrink-0">
                     <div className="w-8 h-8 bg-[#8b5cf6] rounded-lg flex items-center justify-center">
                         <Film className="w-4 h-4 text-white" />
                     </div>
@@ -91,7 +91,7 @@ export default function Navbar() {
                 </Link>
 
                 {/* Search bar */}
-                <form onSubmit={handleSearch} className="flex-1 max-w-md">
+                <form onSubmit={handleSearch} className="order-3 w-full flex-none sm:order-2 sm:flex-1 sm:max-w-md">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
@@ -118,11 +118,18 @@ export default function Navbar() {
                                         const type = item.media_type || "movie";
                                         const year = mediaYear(item);
 
+                                        const href = `/player/${type}/${item.id}`;
+
                                         return (
                                             <Link
                                                 key={`${type}-${item.id}`}
-                                                href={`/player/${type}/${item.id}`}
-                                                onMouseDown={() => setSuggestionsOpen(false)}
+                                                href={href}
+                                                onClick={(event) => {
+                                                    event.preventDefault();
+                                                    setSuggestionsOpen(false);
+                                                    setSearchQ("");
+                                                    router.push(href);
+                                                }}
                                                 className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 transition-colors"
                                             >
                                                 <div className="relative h-12 w-8 flex-shrink-0 overflow-hidden rounded bg-[#1c1c28]">
@@ -160,7 +167,7 @@ export default function Navbar() {
                 </form>
 
                 {/* Nav actions */}
-                <div className="flex items-center gap-2 ml-auto">
+                <div className="order-2 sm:order-3 flex items-center gap-1 sm:gap-2 ml-auto">
                     <Link
                         href="/ai"
                         className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-xl transition-colors ${pathname === "/ai"
