@@ -15,6 +15,7 @@ import {
     type SeasonSummary,
 } from "@/lib/api";
 import Navbar from "@/components/Navbar";
+import WatchParty, { type WatchMediaState } from "@/components/WatchParty";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -30,8 +31,10 @@ import {
     RefreshCw,
     Star,
     Tv,
+    Users,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import { useAppStore } from "@/lib/store";
 
 interface Params {
     type: string;
@@ -111,6 +114,18 @@ function readRequestedEpisode() {
     };
 }
 
+function readWatchRoom() {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("watch");
+}
+
+function createWatchRoomId(type: string, id: string) {
+    const suffix = typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID().slice(0, 8)
+        : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    return `frameon-${type}-${id}-${suffix}`;
+}
+
 function getPlayableSeasons(details: MediaDetails | null) {
     const seasons = (details?.seasons ?? [])
         .filter((item): item is SeasonSummary => item.episode_count > 0 && Number.isFinite(item.season_number))
@@ -143,6 +158,7 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
     const { type, id } = use(params);
     const mediaId = Number.parseInt(id, 10);
     const isTv = type === "tv";
+    const { user } = useAppStore();
 
     const [details, setDetails] = useState<MediaDetails | null>(null);
     const [seasonDetails, setSeasonDetails] = useState<{ season: number; episodes: EpisodeSummary[] } | null>(null);
@@ -157,6 +173,10 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
     const [watchlistLoading, setWatchlistLoading] = useState(false);
     const [inWatchlist, setInWatchlist] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [watchPanelOpen, setWatchPanelOpen] = useState(false);
+    const [watchRoomId, setWatchRoomId] = useState<string | null>(null);
+    const [watchShareUrl, setWatchShareUrl] = useState("");
+    const [watchIsHost, setWatchIsHost] = useState(false);
     const playerRef = useRef<HTMLDivElement>(null);
 
     const playableSeasons = useMemo(() => getPlayableSeasons(details), [details]);
@@ -282,6 +302,21 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
     }, [details, episode, isTv, season]);
 
     useEffect(() => {
+        const room = readWatchRoom();
+        if (!room) return;
+
+        const shareUrl = window.location.href;
+        const timeout = window.setTimeout(() => {
+            setWatchRoomId(room);
+            setWatchPanelOpen(true);
+            setWatchIsHost(false);
+            setWatchShareUrl(shareUrl);
+        }, 0);
+
+        return () => window.clearTimeout(timeout);
+    }, [id, type]);
+
+    useEffect(() => {
         if (!details) return;
         let mounted = true;
 
@@ -396,6 +431,84 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
         if (playing) setEmbedLoadState("loading");
     }, [playing]);
 
+    const buildWatchShareUrl = useCallback((room: string) => {
+        const url = new URL(window.location.href);
+        url.searchParams.set("watch", room);
+        if (isTv) {
+            url.searchParams.set("s", String(season));
+            url.searchParams.set("e", String(episode));
+        }
+        return url;
+    }, [episode, isTv, season]);
+
+    const createWatchRoom = useCallback(() => {
+        const nextRoom = watchRoomId || createWatchRoomId(type, id);
+        const url = buildWatchShareUrl(nextRoom);
+
+        setWatchRoomId(nextRoom);
+        setWatchShareUrl(url.toString());
+        setWatchPanelOpen(true);
+        if (!watchRoomId) setWatchIsHost(true);
+        window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+
+        return nextRoom;
+    }, [buildWatchShareUrl, id, type, watchRoomId]);
+
+    const endWatchRoom = useCallback(() => {
+        setWatchPanelOpen(false);
+        setWatchRoomId(null);
+        setWatchShareUrl("");
+        setWatchIsHost(false);
+
+        const url = new URL(window.location.href);
+        url.searchParams.delete("watch");
+        window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    }, []);
+
+    useEffect(() => {
+        if (!watchRoomId) return;
+
+        const timeout = window.setTimeout(() => {
+            const url = buildWatchShareUrl(watchRoomId);
+            setWatchShareUrl(url.toString());
+        }, 0);
+
+        return () => window.clearTimeout(timeout);
+    }, [buildWatchShareUrl, watchRoomId]);
+
+    const applyWatchState = useCallback((state: WatchMediaState, options?: { startPlayback?: boolean }) => {
+        if (state.type !== type || state.id !== id) {
+            const url = new URL(`/player/${state.type}/${state.id}`, window.location.origin);
+            if (watchRoomId) url.searchParams.set("watch", watchRoomId);
+            if (state.type === "tv") {
+                url.searchParams.set("s", String(state.season));
+                url.searchParams.set("e", String(state.episode));
+            }
+            window.location.href = `${url.pathname}${url.search}`;
+            return;
+        }
+
+        let shouldReload = !!options?.startPlayback || (state.playing && !playing);
+
+        if (EMBED_SOURCES.some((source) => source.id === state.source) && state.source !== activeSource) {
+            setActiveSource(state.source);
+            shouldReload = shouldReload || playing || state.playing;
+        }
+
+        if (isTv && state.season > 0 && state.episode > 0 && (state.season !== season || state.episode !== episode)) {
+            setSeason(state.season);
+            setEpisode(state.episode);
+            setSeasonDetails(null);
+            shouldReload = shouldReload || playing || state.playing;
+        }
+
+        if (shouldReload) {
+            setPlaying(true);
+            setEmbedLoadState("loading");
+            setReloadKey((key) => key + 1);
+        }
+    }, [activeSource, episode, id, isTv, playing, season, type, watchRoomId]);
+
     const toggleWatchlist = async () => {
         if (watchlistLoading || !details || !Number.isFinite(mediaId)) return;
 
@@ -451,6 +564,17 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
     const runtime = runtimeValue ? `${runtimeValue} min` : null;
     const embedUrl = buildEmbedUrl(activeSource, type, id, season, episode);
     const iframeKey = `${activeSource}-${season}-${episode}-${reloadKey}`;
+    const watchState: WatchMediaState = {
+        type,
+        id,
+        title,
+        source: activeSource,
+        season,
+        episode,
+        playing,
+        updatedAt: 0,
+    };
+    const watchDefaultName = user?.display_name || user?.email?.split("@")[0] || "Guest";
 
     return (
         <div className="min-h-screen bg-[#0a0a0f]">
@@ -490,6 +614,23 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                             Reload
                         </button>
                     )}
+                    <button
+                        onClick={() => {
+                            if (!watchRoomId) {
+                                createWatchRoom();
+                            } else {
+                                setWatchPanelOpen((open) => !open);
+                            }
+                        }}
+                        className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                            watchRoomId
+                                ? "border-[#8b5cf6] bg-[#8b5cf6]/15 text-[#d7c3ff]"
+                                : "border-[#2a2a3a] text-gray-300 hover:border-gray-500 hover:text-white"
+                        }`}
+                    >
+                        <Users className="w-3.5 h-3.5" />
+                        Watch Along
+                    </button>
                 </div>
 
                 <div ref={playerRef} className="bg-black rounded-2xl overflow-hidden mb-6 relative">
@@ -575,6 +716,20 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                         </div>
                     )}
                 </div>
+
+                {watchPanelOpen && (
+                    <WatchParty
+                        roomId={watchRoomId}
+                        shareUrl={watchShareUrl}
+                        isHost={watchIsHost}
+                        defaultName={watchDefaultName}
+                        current={watchState}
+                        onCreateRoom={createWatchRoom}
+                        onEndRoom={endWatchRoom}
+                        onApplyState={applyWatchState}
+                        onStartPlayback={handlePlay}
+                    />
+                )}
 
                 {isTv && playableSeasons.length > 0 && (
                     <div className="bg-[#13131a] border border-[#2a2a3a] rounded-xl p-4 mb-6">
