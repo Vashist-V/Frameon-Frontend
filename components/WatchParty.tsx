@@ -12,7 +12,7 @@ import {
     useParticipants,
     useTracks,
 } from "@livekit/components-react";
-import { Copy, Loader2, Mic, MonitorUp, PhoneOff, Play, Radio, Users, Video, X } from "lucide-react";
+import { Copy, Loader2, Mic, MonitorUp, Pause, PhoneOff, Play, Radio, Users, Video, X } from "lucide-react";
 import { Track } from "livekit-client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -24,6 +24,7 @@ export type WatchMediaState = {
     season: number;
     episode: number;
     playing: boolean;
+    syncVersion: number;
     updatedAt: number;
 };
 
@@ -33,10 +34,12 @@ type WatchPartyProps = {
     isHost: boolean;
     defaultName: string;
     current: WatchMediaState;
+    sidebar?: boolean;
     onCreateRoom: () => string;
     onEndRoom: () => void;
     onApplyState: (state: WatchMediaState, options?: { startPlayback?: boolean }) => void;
     onStartPlayback: () => void;
+    onPausePlayback: () => void;
 };
 
 type TokenResponse = {
@@ -48,7 +51,8 @@ type TokenResponse = {
 
 type WatchMessage =
     | { kind: "state"; sender: string; state: WatchMediaState }
-    | { kind: "start"; sender: string; state: WatchMediaState };
+    | { kind: "start"; sender: string; state: WatchMediaState }
+    | { kind: "pause"; sender: string; state: WatchMediaState };
 
 const WATCH_TOPIC = "frameon-watch-state";
 
@@ -84,11 +88,15 @@ function WatchPartyRoom({
     isHost,
     onApplyState,
     onStartPlayback,
+    onPausePlayback,
+    sidebar = false,
 }: {
     current: WatchMediaState;
     isHost: boolean;
     onApplyState: WatchPartyProps["onApplyState"];
     onStartPlayback: () => void;
+    onPausePlayback: () => void;
+    sidebar?: boolean;
 }) {
     const participants = useParticipants();
     const { localParticipant } = useLocalParticipant();
@@ -125,7 +133,7 @@ function WatchPartyRoom({
         }, 600);
 
         return () => window.clearTimeout(timeout);
-    }, [current.episode, current.id, current.playing, current.season, current.source, current.type, isHost, sendState]);
+    }, [current.episode, current.id, current.playing, current.season, current.source, current.syncVersion, current.type, isHost, sendState]);
 
     useEffect(() => {
         if (!isHost) return;
@@ -152,14 +160,23 @@ function WatchPartyRoom({
         sendState("start", { playing: true }).catch(() => { });
     };
 
+    const syncPause = () => {
+        onPausePlayback();
+        sendState("pause", { playing: false }).catch(() => { });
+    };
+
+    const tileGridClass = sidebar
+        ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2 gap-2"
+        : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2";
+
     return (
         <div className="space-y-3">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            <div className={tileGridClass}>
                 {tracks.slice(0, 4).map((trackRef) => (
                     <ParticipantTile
                         key={`${trackRef.participant.identity}-${trackRef.source}`}
                         trackRef={trackRef}
-                        className="!rounded-lg !border !border-[#2a2a3a] !bg-[#0d0d14] !min-h-[96px] overflow-hidden"
+                        className="!rounded-lg !border !border-[#2a2a3a] !bg-[#0d0d14] !min-h-[108px] overflow-hidden"
                     />
                 ))}
             </div>
@@ -189,14 +206,26 @@ function WatchPartyRoom({
                     <MonitorUp className="h-3.5 w-3.5" />
                     Screen
                 </TrackToggle>
-                <button
-                    onClick={syncStart}
-                    disabled={isSending}
-                    className="flex items-center gap-1.5 rounded-lg bg-[#8b5cf6] px-3 py-2 text-xs font-medium text-white hover:bg-[#7c3aed] disabled:opacity-60"
-                >
-                    {isSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                    Sync Start
-                </button>
+                {isHost && (
+                    <>
+                        <button
+                            onClick={syncStart}
+                            disabled={isSending}
+                            className="flex items-center gap-1.5 rounded-lg bg-[#8b5cf6] px-3 py-2 text-xs font-medium text-white hover:bg-[#7c3aed] disabled:opacity-60"
+                        >
+                            {isSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                            Start All
+                        </button>
+                        <button
+                            onClick={syncPause}
+                            disabled={isSending}
+                            className="flex items-center gap-1.5 rounded-lg border border-[#2a2a3a] px-3 py-2 text-xs font-medium text-gray-200 hover:border-gray-500 disabled:opacity-60"
+                        >
+                            <Pause className="h-3.5 w-3.5" />
+                            Pause All
+                        </button>
+                    </>
+                )}
                 <DisconnectButton
                     className="ml-auto flex items-center gap-1.5 rounded-lg border border-red-500/40 px-3 py-2 text-xs text-red-200 hover:bg-red-500/10"
                     stopTracks
@@ -209,6 +238,7 @@ function WatchPartyRoom({
             <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
                 <span>{participants.length} in room</span>
                 <span>{isHost ? "Host controls sync" : "Following host sync"}</span>
+                {!isHost && <span>Playback follows the host</span>}
                 {lastSyncAt && <span>Synced {new Date(lastSyncAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
             </div>
 
@@ -227,10 +257,12 @@ export default function WatchParty({
     isHost,
     defaultName,
     current,
+    sidebar = false,
     onCreateRoom,
     onEndRoom,
     onApplyState,
     onStartPlayback,
+    onPausePlayback,
 }: WatchPartyProps) {
     const [name, setName] = useState(defaultName || "Guest");
     const [identity, setIdentity] = useState("");
@@ -318,9 +350,15 @@ export default function WatchParty({
         onEndRoom();
     };
 
+    const sectionClass = sidebar
+        ? "bg-[#13131a] border border-[#2a2a3a] rounded-xl p-4 h-full min-h-0 overflow-hidden flex flex-col"
+        : "bg-[#13131a] border border-[#2a2a3a] rounded-xl p-4 mb-6";
+    const bodyClass = sidebar ? "space-y-4 flex-1 min-h-0 overflow-y-auto pr-1" : "space-y-4";
+    const formRowClass = sidebar ? "flex flex-col gap-2" : "flex flex-col gap-2 sm:flex-row";
+
     return (
-        <section className="bg-[#13131a] border border-[#2a2a3a] rounded-xl p-4 mb-6">
-            <div className="flex flex-wrap items-center gap-3 mb-4">
+        <section className={sectionClass} data-testid="watch-party-panel">
+            <div className="flex flex-wrap items-center gap-3 mb-4 shrink-0">
                 <div className="flex items-center gap-2">
                     <div className="h-8 w-8 rounded-lg bg-[#8b5cf6]/20 border border-[#8b5cf6]/30 flex items-center justify-center">
                         <Users className="h-4 w-4 text-[#d7c3ff]" />
@@ -351,8 +389,8 @@ export default function WatchParty({
             )}
 
             {roomId && (
-                <div className="space-y-4">
-                    <div className="flex flex-col gap-2 sm:flex-row">
+                <div className={bodyClass}>
+                    <div className={formRowClass}>
                         <input
                             value={shareUrl}
                             readOnly
@@ -368,7 +406,7 @@ export default function WatchParty({
                     </div>
 
                     {!joined && (
-                        <div className="flex flex-col gap-2 sm:flex-row">
+                        <div className={formRowClass}>
                             <input
                                 value={name}
                                 onChange={(event) => setName(event.target.value)}
@@ -402,10 +440,12 @@ export default function WatchParty({
                             <WatchPartyRoom
                                 current={current}
                                 isHost={isHost}
-                                onApplyState={onApplyState}
-                                onStartPlayback={onStartPlayback}
-                            />
-                        </LiveKitRoom>
+                            onApplyState={onApplyState}
+                            onStartPlayback={onStartPlayback}
+                            onPausePlayback={onPausePlayback}
+                            sidebar={sidebar}
+                        />
+                    </LiveKitRoom>
                     )}
                 </div>
             )}

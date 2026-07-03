@@ -16,6 +16,7 @@ import {
 } from "@/lib/api";
 import Navbar from "@/components/Navbar";
 import WatchParty, { type WatchMediaState } from "@/components/WatchParty";
+import WatchSyncBridge from "@/components/WatchSyncBridge";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -177,7 +178,10 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
     const [watchRoomId, setWatchRoomId] = useState<string | null>(null);
     const [watchShareUrl, setWatchShareUrl] = useState("");
     const [watchIsHost, setWatchIsHost] = useState(false);
+    const [watchSyncVersion, setWatchSyncVersion] = useState(0);
+    const watchStageRef = useRef<HTMLDivElement>(null);
     const playerRef = useRef<HTMLDivElement>(null);
+    const lastAppliedWatchSyncRef = useRef(0);
 
     const playableSeasons = useMemo(() => getPlayableSeasons(details), [details]);
     const selectedSeason = playableSeasons.find((item) => item.season_number === season) ?? playableSeasons[0];
@@ -382,8 +386,13 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
         if (playing) logCurrentWatch();
     }, [logCurrentWatch, playing]);
 
+    const markHostSync = useCallback(() => {
+        if (!watchIsHost) return;
+        setWatchSyncVersion((version) => version + 1);
+    }, [watchIsHost]);
+
     const handleFullscreen = useCallback(() => {
-        const el = playerRef.current as FullscreenElement | null;
+        const el = (watchStageRef.current ?? playerRef.current) as FullscreenElement | null;
         if (!el) return;
 
         if (document.fullscreenElement) {
@@ -399,7 +408,14 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
         setPlaying(true);
         setEmbedLoadState("loading");
         setReloadKey((key) => key + 1);
-    }, []);
+        markHostSync();
+    }, [markHostSync]);
+
+    const handlePause = useCallback(() => {
+        setPlaying(false);
+        setEmbedLoadState("idle");
+        markHostSync();
+    }, [markHostSync]);
 
     const selectSource = useCallback((sourceId: string) => {
         setActiveSource(sourceId);
@@ -407,7 +423,8 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
             setEmbedLoadState("loading");
             setReloadKey((key) => key + 1);
         }
-    }, [playing]);
+        markHostSync();
+    }, [markHostSync, playing]);
 
     const rotateToNextSource = useCallback(() => {
         const index = EMBED_SOURCES.findIndex((source) => source.id === activeSource);
@@ -416,20 +433,23 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
         setPlaying(true);
         setEmbedLoadState("loading");
         setReloadKey((key) => key + 1);
-    }, [activeSource]);
+        markHostSync();
+    }, [activeSource, markHostSync]);
 
     const goToEpisode = useCallback((targetSeason: number, targetEpisode: number) => {
         setSeason(targetSeason);
         setEpisode(targetEpisode);
         if (playing) setEmbedLoadState("loading");
-    }, [playing]);
+        markHostSync();
+    }, [markHostSync, playing]);
 
     const handleSeasonChange = useCallback((targetSeason: number) => {
         setSeason(targetSeason);
         setEpisode(1);
         setSeasonDetails(null);
         if (playing) setEmbedLoadState("loading");
-    }, [playing]);
+        markHostSync();
+    }, [markHostSync, playing]);
 
     const buildWatchShareUrl = useCallback((room: string) => {
         const url = new URL(window.location.href);
@@ -488,7 +508,13 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
             return;
         }
 
-        let shouldReload = !!options?.startPlayback || (state.playing && !playing);
+        const incomingVersion = state.syncVersion || 0;
+        const isNewSyncCommand = incomingVersion > lastAppliedWatchSyncRef.current;
+        if (incomingVersion > 0 && incomingVersion < lastAppliedWatchSyncRef.current) return;
+        if (isNewSyncCommand) lastAppliedWatchSyncRef.current = incomingVersion;
+
+        let shouldReload = !!options?.startPlayback || (state.playing && (!playing || isNewSyncCommand));
+        const shouldStop = !state.playing && (playing || isNewSyncCommand);
 
         if (EMBED_SOURCES.some((source) => source.id === state.source) && state.source !== activeSource) {
             setActiveSource(state.source);
@@ -506,6 +532,9 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
             setPlaying(true);
             setEmbedLoadState("loading");
             setReloadKey((key) => key + 1);
+        } else if (shouldStop) {
+            setPlaying(false);
+            setEmbedLoadState("idle");
         }
     }, [activeSource, episode, id, isTv, playing, season, type, watchRoomId]);
 
@@ -572,9 +601,22 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
         season,
         episode,
         playing,
+        syncVersion: watchSyncVersion,
         updatedAt: 0,
     };
     const watchDefaultName = user?.display_name || user?.email?.split("@")[0] || "Guest";
+    const showWatchPanel = watchPanelOpen && !!watchRoomId;
+    const playerFrameClass = isFullscreen ? "relative w-full h-full min-h-0" : "relative w-full";
+    const playerFrameStyle = isFullscreen ? undefined : { paddingBottom: "56.25%" };
+    const watchStageClass = [
+        "mb-6 min-h-0",
+        showWatchPanel ? "grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]" : "",
+        isFullscreen ? "h-screen max-h-screen overflow-hidden bg-[#050507] p-3 xl:grid-cols-[minmax(0,1fr)_340px]" : "",
+    ].filter(Boolean).join(" ");
+    const playerShellClass = [
+        "bg-black rounded-2xl overflow-hidden relative min-w-0",
+        isFullscreen ? "h-full min-h-0 rounded-xl" : "",
+    ].filter(Boolean).join(" ");
 
     return (
         <div className="min-h-screen bg-[#0a0a0f]">
@@ -633,103 +675,116 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                     </button>
                 </div>
 
-                <div ref={playerRef} className="bg-black rounded-2xl overflow-hidden mb-6 relative">
-                    {playing ? (
-                        <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-                            <div className="absolute inset-0 bg-black">
-                                <iframe
-                                    key={iframeKey}
-                                    title={`${title} player`}
-                                    src={embedUrl}
-                                    className="absolute inset-0 w-full h-full"
-                                    allowFullScreen={true}
-                                    allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-                                    referrerPolicy="origin"
-                                    onLoad={() => setEmbedLoadState("loaded")}
-                                    onError={() => setEmbedLoadState("failed")}
-                                    frameBorder="0"
-                                />
-                            </div>
-
-                            {embedLoadState !== "loaded" && (
-                                <div className="absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg border border-white/10 bg-black/75 px-3 py-2 text-xs text-white backdrop-blur-sm">
-                                    {embedLoadState === "loading" && (
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-3 h-3 border border-white/70 border-t-transparent rounded-full animate-spin" />
-                                            Loading {activeSourceMeta.label}...
-                                        </div>
-                                    )}
-
-                                    {embedLoadState === "slow" && (
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span>{activeSourceMeta.label} is taking longer than usual.</span>
-                                            <button onClick={handlePlay} className="text-[#d8c9ff] hover:text-white">Reload</button>
-                                            <button onClick={rotateToNextSource} className="text-[#d8c9ff] hover:text-white">Try next</button>
-                                        </div>
-                                    )}
-
-                                    {embedLoadState === "failed" && (
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span>{activeSourceMeta.label} failed to load.</span>
-                                            <button onClick={rotateToNextSource} className="text-[#d8c9ff] hover:text-white">Try next</button>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            <button
-                                onClick={handleFullscreen}
-                                className="player-fullscreen-control absolute bottom-3 right-3 z-10 bg-black/60 hover:bg-black/90 text-white p-2 rounded-lg backdrop-blur-sm transition-all opacity-60 hover:opacity-100"
-                                title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                            >
-                                {isFullscreen
-                                    ? <Minimize className="w-4 h-4" />
-                                    : <Maximize className="w-4 h-4" />
-                                }
-                            </button>
-                        </div>
-                    ) : (
-                        <div
-                            className="relative cursor-pointer group"
-                            style={{ paddingBottom: "56.25%" }}
-                            onClick={handlePlay}
-                        >
-                            {details.backdrop_path ? (
-                                <Image
-                                    src={TMDB_IMAGE(details.backdrop_path, "original")}
-                                    alt={title}
-                                    fill
-                                    className="object-cover"
-                                    priority
-                                />
-                            ) : (
-                                <div className="absolute inset-0 bg-[#1c1c28]" />
-                            )}
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center group-hover:bg-black/40 transition-colors">
-                                <div className="w-20 h-20 bg-[#8b5cf6] rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-2xl shadow-[#8b5cf6]/35">
-                                    <Play className="w-9 h-9 text-white ml-1" fill="white" />
-                                </div>
-                            </div>
-                            <div className="absolute bottom-4 left-4 text-white text-sm font-medium bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-lg">
-                                Play {isTv ? `S${season}:E${episode}` : title}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {watchPanelOpen && (
-                    <WatchParty
+                {watchRoomId && (
+                    <WatchSyncBridge
                         roomId={watchRoomId}
-                        shareUrl={watchShareUrl}
                         isHost={watchIsHost}
-                        defaultName={watchDefaultName}
                         current={watchState}
-                        onCreateRoom={createWatchRoom}
-                        onEndRoom={endWatchRoom}
                         onApplyState={applyWatchState}
-                        onStartPlayback={handlePlay}
                     />
                 )}
+
+                <div ref={watchStageRef} className={watchStageClass} data-testid="watch-stage">
+                    <div ref={playerRef} className={playerShellClass} data-testid="player-shell">
+                        {playing ? (
+                            <div className={playerFrameClass} style={playerFrameStyle}>
+                                <div className="absolute inset-0 bg-black">
+                                    <iframe
+                                        key={iframeKey}
+                                        title={`${title} player`}
+                                        src={embedUrl}
+                                        className="absolute inset-0 w-full h-full"
+                                        allowFullScreen={true}
+                                        allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+                                        referrerPolicy="origin"
+                                        onLoad={() => setEmbedLoadState("loaded")}
+                                        onError={() => setEmbedLoadState("failed")}
+                                        frameBorder="0"
+                                    />
+                                </div>
+
+                                {embedLoadState !== "loaded" && (
+                                    <div className="absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] rounded-lg border border-white/10 bg-black/75 px-3 py-2 text-xs text-white backdrop-blur-sm">
+                                        {embedLoadState === "loading" && (
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-3 h-3 border border-white/70 border-t-transparent rounded-full animate-spin" />
+                                                Loading {activeSourceMeta.label}...
+                                            </div>
+                                        )}
+
+                                        {embedLoadState === "slow" && (
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span>{activeSourceMeta.label} is taking longer than usual.</span>
+                                                <button onClick={handlePlay} className="text-[#d8c9ff] hover:text-white">Reload</button>
+                                                <button onClick={rotateToNextSource} className="text-[#d8c9ff] hover:text-white">Try next</button>
+                                            </div>
+                                        )}
+
+                                        {embedLoadState === "failed" && (
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span>{activeSourceMeta.label} failed to load.</span>
+                                                <button onClick={rotateToNextSource} className="text-[#d8c9ff] hover:text-white">Try next</button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                <button
+                                    onClick={handleFullscreen}
+                                    className="player-fullscreen-control absolute bottom-3 right-3 z-10 bg-black/60 hover:bg-black/90 text-white p-2 rounded-lg backdrop-blur-sm transition-all opacity-60 hover:opacity-100"
+                                    title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                                >
+                                    {isFullscreen
+                                        ? <Minimize className="w-4 h-4" />
+                                        : <Maximize className="w-4 h-4" />
+                                    }
+                                </button>
+                            </div>
+                        ) : (
+                            <div
+                                className={`${playerFrameClass} cursor-pointer group`}
+                                style={playerFrameStyle}
+                                onClick={handlePlay}
+                            >
+                                {details.backdrop_path ? (
+                                    <Image
+                                        src={TMDB_IMAGE(details.backdrop_path, "original")}
+                                        alt={title}
+                                        fill
+                                        className="object-cover"
+                                        priority
+                                    />
+                                ) : (
+                                    <div className="absolute inset-0 bg-[#1c1c28]" />
+                                )}
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center group-hover:bg-black/40 transition-colors">
+                                    <div className="w-20 h-20 bg-[#8b5cf6] rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-2xl shadow-[#8b5cf6]/35">
+                                        <Play className="w-9 h-9 text-white ml-1" fill="white" />
+                                    </div>
+                                </div>
+                                <div className="absolute bottom-4 left-4 text-white text-sm font-medium bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-lg">
+                                    Play {isTv ? `S${season}:E${episode}` : title}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {showWatchPanel && (
+                        <WatchParty
+                            roomId={watchRoomId}
+                            shareUrl={watchShareUrl}
+                            isHost={watchIsHost}
+                            defaultName={watchDefaultName}
+                            current={watchState}
+                            sidebar
+                            onCreateRoom={createWatchRoom}
+                            onEndRoom={endWatchRoom}
+                            onApplyState={applyWatchState}
+                            onStartPlayback={handlePlay}
+                            onPausePlayback={handlePause}
+                        />
+                    )}
+                </div>
 
                 {isTv && playableSeasons.length > 0 && (
                     <div className="bg-[#13131a] border border-[#2a2a3a] rounded-xl p-4 mb-6">
