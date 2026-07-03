@@ -28,6 +28,7 @@ import {
     Clock,
     Maximize,
     Minimize,
+    Pause,
     Play,
     RefreshCw,
     Star,
@@ -691,11 +692,13 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                                 <div className="absolute inset-0 bg-black">
                                     <iframe
                                         key={iframeKey}
+                                        data-testid="embedded-player"
                                         title={`${title} player`}
                                         src={embedUrl}
                                         className="absolute inset-0 w-full h-full"
                                         allowFullScreen={true}
                                         allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+                                        sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
                                         referrerPolicy="origin"
                                         onLoad={() => setEmbedLoadState("loaded")}
                                         onError={() => setEmbedLoadState("failed")}
@@ -726,6 +729,25 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                                                 <button onClick={rotateToNextSource} className="text-[#d8c9ff] hover:text-white">Try next</button>
                                             </div>
                                         )}
+                                    </div>
+                                )}
+
+                                {watchIsHost && watchRoomId && (
+                                    <div className="absolute right-3 top-3 z-20 flex flex-wrap items-center gap-2">
+                                        <button
+                                            onClick={handlePlay}
+                                            className="flex items-center gap-1.5 rounded-lg bg-[#8b5cf6] px-3 py-2 text-xs font-medium text-white shadow-lg shadow-black/30 hover:bg-[#7c3aed]"
+                                        >
+                                            <Play className="h-3.5 w-3.5" fill="white" />
+                                            Start All
+                                        </button>
+                                        <button
+                                            onClick={handlePause}
+                                            className="flex items-center gap-1.5 rounded-lg border border-white/15 bg-black/70 px-3 py-2 text-xs font-medium text-white shadow-lg shadow-black/30 backdrop-blur-sm hover:bg-black/90"
+                                        >
+                                            <Pause className="h-3.5 w-3.5" />
+                                            Pause All
+                                        </button>
                                     </div>
                                 )}
 
