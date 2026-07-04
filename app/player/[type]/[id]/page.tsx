@@ -594,6 +594,9 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
     const runtime = runtimeValue ? `${runtimeValue} min` : null;
     const embedUrl = buildEmbedUrl(activeSource, type, id, season, episode);
     const iframeKey = `${activeSource}-${season}-${episode}-${reloadKey}`;
+    const iframeSandbox = activeSource === "2embed.cc"
+        ? undefined
+        : "allow-scripts allow-same-origin allow-forms allow-presentation";
     const watchState: WatchMediaState = {
         type,
         id,
@@ -698,7 +701,7 @@ export default function PlayerPage({ params }: { params: Promise<Params> }) {
                                         className="absolute inset-0 w-full h-full"
                                         allowFullScreen={true}
                                         allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-                                        sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+                                        sandbox={iframeSandbox}
                                         referrerPolicy="origin"
                                         onLoad={() => setEmbedLoadState("loaded")}
                                         onError={() => setEmbedLoadState("failed")}
